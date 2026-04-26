@@ -10,8 +10,8 @@ from df_pipeline.schema import ColumnFilter, TransformConfig
 
 class TestColumnFilter:
     def test_flat_col(self):
-        f = ColumnFilter(col="well_id", op="startswith", value="PW")
-        assert f.col_key == "well_id"
+        f = ColumnFilter(col="well", op="startswith", value="W")
+        assert f.col_key == "well"
 
     def test_multiindex_col(self):
         f = ColumnFilter(col=["measurement", "temperature"], op="ge", value=20.0)
