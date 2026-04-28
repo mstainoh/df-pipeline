@@ -26,35 +26,16 @@ Usage from Python
     config = TransformConfig(
         column_filters=[
             ColumnFilter(col="well_id", op="startswith", value="PW"),
-            ColumnFilter(col=["measurement", "temperature"], op="ge", value=20.0),
         ],
         index="well_id",
     )
 """
 
 from __future__ import annotations
-
 from typing import Any, Literal, Optional
-
 from pydantic import BaseModel, model_validator
 
-# ---------------------------------------------------------------------------
-# aux functions
-# ---------------------------------------------------------------------------
-def str_or_tuple(s: Optional[str | tuple[str]]=None) -> Optional[str | tuple]:
-    if isinstance(s, list):
-        return tuple(s)
-    return s
-
-
-# ---------------------------------------------------------------------------
-# Supported operators
-# ---------------------------------------------------------------------------
-
-OpName = Literal[
-    "ge", "gt", "le", "lt", "eq", "ne",
-    "startswith", "endswith", "contains",
-]
+from df_pipeline.registry import COLUMN_TRANSFORM_REGISTRY, OpName
 
 # ---------------------------------------------------------------------------
 # ColumnFilter
@@ -68,15 +49,14 @@ class ColumnFilter(BaseModel):
     ----------
     col : str or list of str
         Column name, or a list of level names for MultiIndex columns.
-        Examples: ``"well_id"``, ``["measurement", "temperature"]``.
     op : OpName
         Comparison or string operator. Supported values:
         ``ge``, ``gt``, ``le``, ``lt``, ``eq``, ``ne``,
         ``startswith``, ``endswith``, ``contains``.
     value : Any, optional
-        Right-hand side of the comparison (value). May be ``None`` if "other" is specified .
+        Right-hand side scalar. May be ``None`` if ``other_col`` is specified.
     other_col : str or list of str, optional
-        Right-hand side of the comparison (column). May be ``None`` if "value" is specified
+        Right-hand side column. May be ``None`` if ``value`` is specified.
     """
 
     col: str | list[str]
@@ -94,98 +74,97 @@ class ColumnFilter(BaseModel):
 
     @property
     def col_key(self) -> str | tuple:
-        """
-        Column accessor compatible with ``df[key]``.
-
-        Returns a ``tuple`` for MultiIndex columns, a plain ``str`` otherwise.
-        """
         if isinstance(self.col, list):
             return tuple(self.col)
         return self.col
 
     @property
     def other_col_key(self) -> Optional[str | tuple]:
-        """
-        Column accessor compatible with ``df[key]``.
-
-        Returns a ``tuple`` for MultiIndex columns, a plain ``str`` otherwise (or ``None`` if other_col is not defined).
-        """
         if isinstance(self.other_col, list):
             return tuple(self.other_col)
         return self.other_col
 
 
 # ---------------------------------------------------------------------------
-# Column transformations
+# ColumnTransform
 # ---------------------------------------------------------------------------
-
-ColumnTransformOp = Literal[
-    "to_numeric",
-    "to_datetime", 
-    "tz_convert",
-    "col_diff",
-]
 
 class ColumnTransform(BaseModel):
     """
     A single column-level transformation producing a new or overwritten column.
 
+    The ``op`` field is validated at construction time against
+    :data:`~df_pipeline.registry.COLUMN_TRANSFORM_REGISTRY`.  Custom ops can
+    be registered with :func:`~df_pipeline.registry.register_transform` before
+    any ``ColumnTransform`` is instantiated.
+
     Parameters
     ----------
-    col : str or list[str]
-        Primary input column. Required for all ops except nullary ones.
-    dest : str or list[str], optional
-        Output column name. Created if absent, overwritten if present.
-    op : ColumnTransformOp
-        Operation to apply.
-    other_col : str or list[str], optional
-        Secondary input column. Required for binary ops (col_diff).
+    col : str or list of str, optional
+        Primary input column. Required when ``spec.requires_col`` is ``True``
+        (all built-in ops).
+    op : str
+        Operation name. Must be a key in ``COLUMN_TRANSFORM_REGISTRY``.
+        Built-in: ``to_numeric``, ``to_datetime``, ``tz_convert``, ``date_diff``.
+    dest : str, optional
+        Output column name. If omitted, overwrites ``col``.
+    other_col : str or list of str, optional
+        Secondary input column. Required for binary ops (e.g. ``date_diff``).
     params : dict, optional
         Extra keyword arguments forwarded to the underlying function.
 
         Per-op params
         ~~~~~~~~~~~~~
-        to_numeric  : errors {"raise","coerce","ignore"} — default "raise"
-        to_datetime : errors, format, utc  — forwarded to pd.to_datetime
-        tz_convert  : tz (str, required)   — e.g. "America/Argentina/Buenos_Aires"
-        col_diff    : unit {"days","hours","minutes","seconds"} — default "seconds"
+        to_numeric  : errors {"raise", "coerce", "ignore"} — default ``"raise"``
+        to_datetime : errors, format, utc — forwarded to :func:`pandas.to_datetime`
+        tz_convert  : tz (str, required) — e.g. ``"America/Argentina/Buenos_Aires"``
+        date_diff   : unit {"days", "hours", "minutes", "seconds"} — default ``"seconds"``
     """
-    col: str | list[str]
-    op: ColumnTransformOp
-    dest: str | list[str] | None = None
+
+    col: str | list[str] | None = None
+    op: str
+    dest: str | None = None
     other_col: str | list[str] | None = None
     params: dict[str, Any] = {}
 
     @model_validator(mode="after")
-    def _validate_operands(self) -> ColumnTransform:
-        unary_ops  = {"to_numeric", "to_datetime", "tz_convert"}
-        binary_ops = {"col_diff"}
+    def _validate_op(self) -> ColumnTransform:
+        if self.op not in COLUMN_TRANSFORM_REGISTRY:
+            supported = set(COLUMN_TRANSFORM_REGISTRY)
+            raise ValueError(
+                f"op '{self.op}' is not registered. "
+                f"Available: {supported}. "
+                f"Use register_transform() to add custom ops."
+            )
 
-        if self.op in unary_ops and self.col is None:
+        spec = COLUMN_TRANSFORM_REGISTRY[self.op]
+
+        if spec.requires_col and self.col is None:
             raise ValueError(f"op '{self.op}' requires col")
-        if self.op in binary_ops and (self.col is None or self.other_col is None):
-            raise ValueError(f"op '{self.op}' requires both col and other_col")
-        if self.op == "tz_convert" and "tz" not in self.params:
-            raise ValueError("op 'tz_convert' requires params.tz")
+        if spec.requires_other_col and self.other_col is None:
+            raise ValueError(f"op '{self.op}' requires other_col")
+        for p in spec.required_params:
+            if p not in self.params:
+                raise ValueError(f"op '{self.op}' requires params['{p}']")
+
         return self
 
     @property
-    def col_key(self) -> str | tuple:
+    def col_key(self) -> str | tuple | None:
         if isinstance(self.col, list):
             return tuple(self.col)
         return self.col
 
     @property
-    def dest_key(self) -> str | tuple | None:
-        if isinstance(self.dest, list):
-            return tuple(self.dest)
-        return self.dest
+    def dest_key(self) -> str | None:
+        return self.dest or (self.col if isinstance(self.col, str) else None)
 
     @property
     def other_col_key(self) -> str | tuple | None:
         if isinstance(self.other_col, list):
             return tuple(self.other_col)
         return self.other_col
+
 
 # ---------------------------------------------------------------------------
 # TransformConfig
@@ -195,60 +174,41 @@ class TransformConfig(BaseModel):
     """
     Full declarative specification for a DataFrame transformation pipeline.
 
-    All fields are optional and default to a no-op, so a config that only
-    renames columns does not need to specify ``column_filters`` etc.
+    All fields are optional and default to a no-op.
 
-    The transformation order matches :func:`df_pipeline.transforms.apply_base_transform`:
+    Transformation order (matches :func:`~df_pipeline.transforms.apply_base_transform`):
 
-    1. Rename columns
-    2. Assign new columns
-    3. Column transformations
-    4. Filter rows
-    5. Select columns
-    6. Set index
+    1. Rename columns       (``renames``)
+    2. Assign scalar cols   (``assigns``)
+    3. Column transforms    (``column_transforms``)
+    4. Filter rows          (``column_filters``)
+    5. Drop duplicates      (``drop_duplicates``)
+    6. Select columns       (``select``)
+    7. Set index            (``index``)
 
     Parameters
     ----------
     renames : dict of str to str, optional
         Column rename mapping ``{old_name: new_name}``.
     assigns : dict of str to Any, optional
-        Columns to create or overwrite with scalar or array-like values.
-    column_transforms: list of ColumnTransform, optional
-        Column transformations operations
+        Columns to create or overwrite with scalar values.
+    column_transforms : list of ColumnTransform, optional
+        Column-level transforms applied in order.
     column_filters : list of ColumnFilter, optional
         Row filters combined with logical AND.
+    drop_duplicates : list of str or bool, optional
+        If a list, drop duplicates considering only those columns as subset.
+        If ``True``, drop fully duplicate rows. Default ``False`` (skip).
     select : list of str, optional
         Columns to retain in the output. Applied after filters.
     index : str or list of str, optional
         Column(s) to set as the DataFrame index.
-
-    Examples
-    --------
-    Construct from a raw dict (e.g. parsed YAML)::
-
-        config = TransformConfig.model_validate({
-            "renames": {"old_col": "new_col"},
-            "column_filters": [
-                {"col": "well_id", "op": "startswith", "value": "PW"},
-                {"col": ["meas", "temp"], "op": "ge", "value": 20.0},
-            ],
-            "index": "well_id",
-        })
-
-    Construct programmatically::
-
-        config = TransformConfig(
-            renames={"old_col": "new_col"},
-            column_filters=[
-                ColumnFilter(col="well_id", op="startswith", value="PW"),
-            ],
-            index="well_id",
-        )
     """
 
-    renames: dict[str, str] = {}
-    assigns: dict[str, Any] = {}
+    renames:           dict[str, str]        = {}
+    assigns:           dict[str, Any]        = {}
     column_transforms: list[ColumnTransform] = []
-    column_filters: list[ColumnFilter] = []
-    select: list[str] = []
-    index: str | list[str] | None = None
+    column_filters:    list[ColumnFilter]    = []
+    drop_duplicates:   list[str] | bool      = False
+    select:            list[str]             = []
+    index:             str | list[str] | None = None

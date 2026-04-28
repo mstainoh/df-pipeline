@@ -10,34 +10,18 @@ accepts a list of :class:`~df_pipeline.schema.ColumnTransform` objects and
 applies them sequentially, each potentially depending on columns created by
 previous steps.
 
-Supported operators are defined in :data:`COLUMN_TRANSFORM_MAPPERS`.
+Supported operators are defined in
+:data:`~df_pipeline.registry.COLUMN_TRANSFORM_REGISTRY`.
 """
 
 from __future__ import annotations
 
 from logging import Logger
-from typing import Any, Callable
 
 import pandas as pd
 
+from df_pipeline.registry import COLUMN_TRANSFORM_REGISTRY
 from df_pipeline.schema import ColumnTransform
-
-
-# ---------------------------------------------------------------------------
-# Transform registry
-# ---------------------------------------------------------------------------
-
-COLUMN_TRANSFORM_MAPPERS: dict[str, Callable] = {
-    # Cast operations
-    "to_numeric":  lambda s, _other, p: pd.to_numeric(s, **p),
-    "to_datetime": lambda s, _other, p: pd.to_datetime(s, **p),
-
-    # Timezone conversion  (requires params["tz"])
-    "tz_convert":  lambda s, _other, p: s.dt.tz_convert(p["tz"]),
-
-    # Binary column arithmetic  (returns float, unit-aware)
-    "col_diff":    lambda s, other,  p: (s - other) / pd.Timedelta(1, unit=p.get("unit", "seconds")),
-}
 
 
 # ---------------------------------------------------------------------------
@@ -54,53 +38,45 @@ def _apply_single_transform(
     Parameters
     ----------
     df : pd.DataFrame
-        Input DataFrame. Modified by assignment to ``ct.dest``.
+        Input DataFrame.
     ct : ColumnTransform
-        Transform specification.
+        Transform specification. ``op`` is guaranteed valid by Pydantic.
 
     Returns
     -------
     pd.DataFrame
-        DataFrame with ``ct.dest`` created or overwritten.
+        DataFrame with ``ct.dest_key`` created or overwritten.
 
     Raises
     ------
     KeyError
         If ``ct.col`` or ``ct.other_col`` is not found in ``df``.
-    KeyError
-        If ``ct.op`` is not in :data:`COLUMN_TRANSFORM_MAPPERS`.
     """
-    if ct.op not in COLUMN_TRANSFORM_MAPPERS:
-        supported = set(COLUMN_TRANSFORM_MAPPERS)
-        raise KeyError(
-            f'Transform op "{ct.op}" is not supported. '
-            f"Choose from: {supported}"
-        )
+    spec = COLUMN_TRANSFORM_REGISTRY[ct.op]  # guaranteed valid by Pydantic
 
     # Resolve primary series
-    try:
-        series = df[ct.col_key]
-    except KeyError:
-        raise KeyError(
-            f"Column {ct.col_key!r} not found in DataFrame. "
-            f"Available columns: {list(df.columns)}"
-        )
-
+    s1: pd.Series | None = None
+    if spec.requires_col:
+        try:
+            s1 = df[ct.col_key]
+        except KeyError:
+            raise KeyError(
+                f"Column {ct.col_key!r} not found in DataFrame. "
+                f"Available columns: {list(df.columns)}"
+            )
 
     # Resolve secondary series
-    if ct.other_col_key is not None:
+    s2: pd.Series | None = None
+    if spec.requires_other_col:
         try:
-            other_series = df[ct.other_col_key]
+            s2 = df[ct.other_col_key]
         except KeyError:
             raise KeyError(
                 f"Column {ct.other_col_key!r} not found in DataFrame. "
                 f"Available columns: {list(df.columns)}"
             )
-    else:
-        other_series = None
 
-    dest_col = ct.dest_key or ct.col_key 
-    df[dest_col] = COLUMN_TRANSFORM_MAPPERS[ct.op](series, other_series, ct.params)
+    df[ct.dest_key] = spec(s1, s2, **ct.params)
     return df
 
 
@@ -122,8 +98,9 @@ def apply_column_transforms(
     Parameters
     ----------
     df : pd.DataFrame
-        Input DataFrame. Modified in place per transform, but the caller
-        receives a copy (see :func:`~df_pipeline.transforms.apply_base_transform`).
+        Input DataFrame. Caller is responsible for passing a copy if
+        immutability is required (handled by
+        :func:`~df_pipeline.transforms.apply_base_transform`).
     transforms : list of ColumnTransform
         Transforms to apply in order.
     logger : logging.Logger, optional
@@ -141,15 +118,14 @@ def apply_column_transforms(
 
     Examples
     --------
-    Cast and diff::
+    ::
 
         from df_pipeline.schema import ColumnTransform
         from df_pipeline.column_transforms import apply_column_transforms
 
         transforms = [
-            ColumnTransform(col="flow_raw", op="to_numeric", dest="flow",
-                            params={"errors": "coerce"}),
-            ColumnTransform(col="end_dt", other_col="start_dt", op="col_diff",
+            ColumnTransform(col="flow_m3h", op="m3h_to_ls", dest="flow_ls"),
+            ColumnTransform(col="end_dt", other_col="start_dt", op="date_diff",
                             dest="elapsed_days", params={"unit": "days"}),
         ]
         df_out = apply_column_transforms(df, transforms)
@@ -158,7 +134,7 @@ def apply_column_transforms(
         if logger is not None:
             logger.debug(
                 "Column transform: dest=%r, op=%r, col=%r, other_col=%r, params=%r",
-                ct.dest, ct.op, ct.col, ct.other_col, ct.params,
+                ct.dest_key, ct.op, ct.col, ct.other_col, ct.params,
             )
         df = _apply_single_transform(df, ct)
 
