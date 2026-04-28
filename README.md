@@ -164,22 +164,43 @@ If `dest` is omitted, the result overwrites `col`.
 
 ### Registering custom ops
 
+Example: we register an operation to convert units (in this example, m3/hour to liters/s), and we add a simple function to add the current date. Note that in the second example we set `requires_col=False`. The config file would look like:
+
+```
+  - op: unit_convert
+    col: flow_rate_m3h
+    dest: flow_rate_ls
+    params:
+      factor: 0.27778
+  
+  - op: now
+    dest: processed_timestamp
+
+```
+
+Code:
 ```python
 from df_pipeline.registry import TransformSpec, register_transform
 
-def _m3h_to_ls(s1, s2=None, **kwargs):
-    return s1 / 3.6
+# signature: series1 (None), series2 (None), **kwargs
+def _unit_convert(s1: pd.Series, s2=None, factor: float = 1.0) -> pd.Series:
+    return s1 * factor
+
+def set_now(*args, **kwargs):
+    return pd.Timestamp.now()
 
 # register before any TransformConfig is instantiated
-register_transform("m3h_to_ls", TransformSpec(fn=_m3h_to_ls))
+register_transform("unit_convert", TransformSpec(fn=_unit_convert))
+register_transform("now", TransformSpec(fn=set_now, requires_col=False))
 ```
 
 Then use it in YAML or Python exactly like a built-in op:
 
 ```yaml
-- op: m3h_to_ls
+- op: unit_convert
   col: flow_rate_m3h
   dest: flow_rate_ls
+  factor: 0.27778
 ```
 
 ---

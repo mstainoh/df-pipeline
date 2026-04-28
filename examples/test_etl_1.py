@@ -59,10 +59,20 @@ def _unit_convert(s1: pd.Series, s2=None, factor: float = 1.0, **kwargs) -> pd.S
     """
     return s1 * factor
 
+def set_now(*args, **kwargs):
+    """Return a Series of the current timestamp, aligned with the input series."""
+    # We ignore the input series and just return the current time for all rows.
+    return pd.Timestamp.now()
+
 register_transform("unit_convert", TransformSpec(
     fn=_unit_convert,
     required_params=frozenset({"factor"}),
 ))
+
+register_transform("now", TransformSpec(
+    fn=set_now, requires_col=False
+))
+
 
 # ---------------------------------------------------------------------------
 # df_pipeline imports (after registry is populated)

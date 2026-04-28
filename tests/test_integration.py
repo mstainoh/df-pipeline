@@ -61,7 +61,7 @@ def test_index_is_node_id(result):
 
 
 def test_expected_columns(result):
-    expected = {"group", "flow_rate_m3h", "flow_rate_ls", "duration_days", "data_source"}
+    expected = {"group", "flow_rate_m3h", "flow_rate_ls", "duration_days", "data_source", "processed_timestamp"}
     assert expected == set(result.columns)
 
 

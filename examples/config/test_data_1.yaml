@@ -40,6 +40,9 @@ transform:
         dest: flow_rate_ls
         params:
           factor: 0.27778
+      
+      - op: now
+        dest: processed_timestamp
 
 
     column_filters:
@@ -62,5 +65,6 @@ transform:
       - flow_rate_ls
       - duration_days
       - data_source
+      - processed_timestamp
 
     index: node_id

@@ -15,15 +15,25 @@ Usage
 """
 
 from df_pipeline.registry import TransformSpec, register_transform
+import pandas as pd
 
-
-def unit_convert(s1, *, factor=1):
-    """Convert flow rate from m³/h to L/s  (divide by 3.6)."""
+def _unit_convert(s1: pd.Series, s2=None, factor: float = 1.0, **kwargs) -> pd.Series:
+    """Scale a numeric series by a constant factor.
+    
+    Typical use: flow unit conversion (m³/h → L/s uses factor=1/3.6).
+    """
     return s1 * factor
+
+def set_now(*args, **kwargs):
+    """Return a Series of the current timestamp, aligned with the input series."""
+    # We ignore the input series and just return the current time for all rows.
+    return pd.Timestamp.now()
+
 
 
 CUSTOM_TRANSFORMS = {
-    "unit_convert": TransformSpec(fn=unit_convert),
+    "unit_convert": TransformSpec(fn=_unit_convert),
+    "now": TransformSpec(fn=set_now, requires_col=False)
 }
 
 
