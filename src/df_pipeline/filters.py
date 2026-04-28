@@ -21,27 +21,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from df_pipeline.schema import ColumnFilter
-
-
-# ---------------------------------------------------------------------------
-# Operator registry
-# ---------------------------------------------------------------------------
-
-OP_MAPPERS: dict[str, Any] = {
-    # Numerical comparisons
-    "ge": operator.ge,
-    "gt": operator.gt,
-    "le": operator.le,
-    "lt": operator.lt,
-    "eq": operator.eq,
-    "ne": operator.ne,
-
-    # Vectorized string operations
-    "startswith": lambda s, x: s.astype(str).str.startswith(x),
-    "endswith":   lambda s, x: s.astype(str).str.endswith(x),
-    "contains":   lambda s, x: s.astype(str).str.contains(x, regex=False),
-}
-
+from df_pipeline.registry import OP_MAPPERS
 
 # ---------------------------------------------------------------------------
 # Internal helpers
