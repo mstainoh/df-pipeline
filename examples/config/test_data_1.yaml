@@ -1,0 +1,66 @@
+# -------------------------------------------------------------------
+# Example pipeline config — test_data_1
+# -------------------------------------------------------------------
+# Input CSV columns:
+#   node_id, group, flow_rate, pressure, start_date, end_data (sic)
+# -------------------------------------------------------------------
+
+input:
+  data:
+    source: examples/data/test_data_1
+    reader: csv
+
+transform:
+  data:
+    renames:
+      flow_rate: flow_rate_m3h
+      end_data: end_date          # fix typo in source
+
+    assigns:
+      data_source: "test_data_1"
+
+    column_transforms:
+      - op: to_datetime
+        col: start_date
+        dest: start_date
+
+      - op: to_datetime
+        col: end_date
+        dest: end_date
+
+      - op: date_diff
+        col: end_date
+        other_col: start_date
+        dest: duration_days
+        params:
+          unit: days
+
+      - op: unit_convert             # custom op — requires register_all() at startup
+        col: flow_rate_m3h
+        dest: flow_rate_ls
+        params:
+          factor: 0.27778
+
+
+    column_filters:
+      - col: group
+        op: eq
+        value: "A"
+
+      - col: flow_rate_m3h
+        op: gt
+        value: 13.0
+
+    drop_duplicates:
+      - node_id
+      - start_date
+
+    select:
+      - node_id
+      - group
+      - flow_rate_m3h
+      - flow_rate_ls
+      - duration_days
+      - data_source
+
+    index: node_id
