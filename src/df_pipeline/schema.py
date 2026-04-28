@@ -34,7 +34,7 @@ Usage from Python
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, model_validator
 
@@ -67,13 +67,15 @@ class ColumnFilter(BaseModel):
         ``ge``, ``gt``, ``le``, ``lt``, ``eq``, ``ne``,
         ``startswith``, ``endswith``, ``contains``.
     value : Any, optional
-        Right-hand side of the comparison. May be ``None`` for operators
-        that do not require a value (e.g. null checks in future extensions).
+        Right-hand side of the comparison (value). May be ``None`` if "other" is specified .
+    other_col : str or list of str, optional
+        Right-hand side of the comparison (column). May be ``None`` if "value" is specified
     """
 
     col: str | list[str]
     op: OpName
     value: Any = None
+    other_col: Optional[str | list[str]] = None
 
     @model_validator(mode="after")
     def _col_not_empty(self) -> ColumnFilter:
@@ -94,6 +96,16 @@ class ColumnFilter(BaseModel):
             return tuple(self.col)
         return self.col
 
+    @property
+    def other_col_key(self) -> Optional[str | tuple]:
+        """
+        Column accessor compatible with ``df[key]``.
+
+        Returns a ``tuple`` for MultiIndex columns, a plain ``str`` otherwise (or ``None`` if other_col is not defined).
+        """
+        if isinstance(self.other_col, list):
+            return tuple(self.other_col)
+        return self.other_col
 
 # ---------------------------------------------------------------------------
 # TransformConfig
@@ -106,7 +118,7 @@ class TransformConfig(BaseModel):
     All fields are optional and default to a no-op, so a config that only
     renames columns does not need to specify ``column_filters`` etc.
 
-    The transformation order matches :func:`df_pipeline.transforms.apply_transform`:
+    The transformation order matches :func:`df_pipeline.transforms.apply_base_transform`:
 
     1. Rename columns
     2. Assign new columns

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import operator
 from logging import Logger
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -47,7 +47,7 @@ OP_MAPPERS: dict[str, Any] = {
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _get_op_mask(series: pd.Series, op_name: str, value: Any) -> pd.Series:
+def _get_op_mask(series: pd.Series, op_name: str, value: Optional[Any], other_series: Optional[pd.Series]=None) -> pd.Series:
     """
     Apply a single operator to a Series and return a boolean mask.
 
@@ -58,7 +58,9 @@ def _get_op_mask(series: pd.Series, op_name: str, value: Any) -> pd.Series:
     op_name : str
         Operator name. Must be a key in :data:`OP_MAPPERS`.
     value : Any
-        Right-hand side of the operation.
+        Right-hand side of the operation (value).
+    other_series: pd.Series (optional)
+        Right-hand side of the operation (series).
 
     Returns
     -------
@@ -79,7 +81,7 @@ def _get_op_mask(series: pd.Series, op_name: str, value: Any) -> pd.Series:
             f"Choose from: {supported}"
         )
 
-    mask = OP_MAPPERS[op_name](series, value)
+    mask = OP_MAPPERS[op_name](series, value if value is not None else other_series)
 
     if not isinstance(mask, pd.Series):
         raise TypeError(
@@ -155,6 +157,9 @@ def build_mask(
 
     for f in filters:
         col_key = f.col_key
+        other_col_key = f.other_col_key
+        value = f.value
+        op = f.op
 
         if logger is not None:
             logger.debug(f"Applying filter: col={col_key!r}, op={f.op!r}, value={f.value!r}")
@@ -166,7 +171,24 @@ def build_mask(
                 f"Column {col_key!r} not found in DataFrame. "
                 f"Available columns: {list(df.columns)}"
             )
-
-        mask &= _get_op_mask(series, f.op, f.value)
+        
+        # check consistency between value and other series (only one of them, )
+        if value is None and other_col_key is None:
+            raise ValueError('Either a value or a series must be passed')
+        elif value is not None and other_col_key is not None:
+            raise ValueError('Either a value or a series must be passed. Not both')
+        # if value is not specified, the series must be part of the dataframe
+        elif value is None:
+            try:
+                other_series = df[other_col_key]
+            except KeyError:
+                raise KeyError(
+                    f"Column {other_col_key!r} not found in DataFrame. "
+                    f"Available columns: {list(df.columns)}"
+                )
+        else:
+            other_series = None
+        
+        mask &= _get_op_mask(series, op, value, other_series)
 
     return mask
