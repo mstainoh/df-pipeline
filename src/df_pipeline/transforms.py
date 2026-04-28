@@ -27,7 +27,7 @@ import pandas as pd
 
 from df_pipeline.filters import build_mask
 from df_pipeline.schema import TransformConfig
-
+from df_pipeline.column_transforms import apply_column_transforms
 
 def apply_base_transform(
     df: pd.DataFrame,
@@ -80,31 +80,38 @@ def apply_base_transform(
 
     if config.renames:
         if logger is not None:
-            logger.debug("Transform step 1/5 — renaming columns: %s", config.renames)
+            logger.debug("Transform step 1/6 — renaming columns: %s", config.renames)
         df = df.rename(columns=config.renames)
 
     if config.assigns:
         if logger is not None:
-            logger.debug("Transform step 2/5 — assigning columns: %s", list(config.assigns))
+            logger.debug("Transform step 2/6 — assigning columns: %s", list(config.assigns))
         for col, value in config.assigns.items():
             df[col] = value
+
+    if config.column_transforms:
+        if logger is not None:
+            logger.debug(
+                "Transform step 3/6 — applying %d filter(s)", len(config.column_filters)
+            )
+        df = apply_column_transforms(df, config.column_transforms, logger=logger)
 
     if config.column_filters:
         if logger is not None:
             logger.debug(
-                "Transform step 3/5 — applying %d filter(s)", len(config.column_filters)
+                "Transform step 4/6 — applying %d filter(s)", len(config.column_filters)
             )
         mask = build_mask(df, config.column_filters, logger=logger)
         df = df[mask]
 
     if config.select:
         if logger is not None:
-            logger.debug("Transform step 4/5 — selecting columns: %s", config.select)
+            logger.debug("Transform step 5/6 — selecting columns: %s", config.select)
         df = df[config.select]
 
     if config.index is not None:
         if logger is not None:
-            logger.debug("Transform step 5/5 — setting index: %s", config.index)
+            logger.debug("Transform step 6/6 — setting index: %s", config.index)
         df = df.set_index(config.index)
 
     return df

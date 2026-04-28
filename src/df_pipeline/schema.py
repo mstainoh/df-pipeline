@@ -38,6 +38,14 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, model_validator
 
+# ---------------------------------------------------------------------------
+# aux functions
+# ---------------------------------------------------------------------------
+def str_or_tuple(s: Optional[str | tuple[str]]=None) -> Optional[str | tuple]:
+    if isinstance(s, list):
+        return tuple(s)
+    return s
+
 
 # ---------------------------------------------------------------------------
 # Supported operators
@@ -47,7 +55,6 @@ OpName = Literal[
     "ge", "gt", "le", "lt", "eq", "ne",
     "startswith", "endswith", "contains",
 ]
-
 
 # ---------------------------------------------------------------------------
 # ColumnFilter
@@ -107,6 +114,79 @@ class ColumnFilter(BaseModel):
             return tuple(self.other_col)
         return self.other_col
 
+
+# ---------------------------------------------------------------------------
+# Column transformations
+# ---------------------------------------------------------------------------
+
+ColumnTransformOp = Literal[
+    "to_numeric",
+    "to_datetime", 
+    "tz_convert",
+    "col_diff",
+]
+
+class ColumnTransform(BaseModel):
+    """
+    A single column-level transformation producing a new or overwritten column.
+
+    Parameters
+    ----------
+    col : str or list[str]
+        Primary input column. Required for all ops except nullary ones.
+    dest : str or list[str], optional
+        Output column name. Created if absent, overwritten if present.
+    op : ColumnTransformOp
+        Operation to apply.
+    other_col : str or list[str], optional
+        Secondary input column. Required for binary ops (col_diff).
+    params : dict, optional
+        Extra keyword arguments forwarded to the underlying function.
+
+        Per-op params
+        ~~~~~~~~~~~~~
+        to_numeric  : errors {"raise","coerce","ignore"} — default "raise"
+        to_datetime : errors, format, utc  — forwarded to pd.to_datetime
+        tz_convert  : tz (str, required)   — e.g. "America/Argentina/Buenos_Aires"
+        col_diff    : unit {"days","hours","minutes","seconds"} — default "seconds"
+    """
+    col: str | list[str]
+    op: ColumnTransformOp
+    dest: str | list[str] | None = None
+    other_col: str | list[str] | None = None
+    params: dict[str, Any] = {}
+
+    @model_validator(mode="after")
+    def _validate_operands(self) -> ColumnTransform:
+        unary_ops  = {"to_numeric", "to_datetime", "tz_convert"}
+        binary_ops = {"col_diff"}
+
+        if self.op in unary_ops and self.col is None:
+            raise ValueError(f"op '{self.op}' requires col")
+        if self.op in binary_ops and (self.col is None or self.other_col is None):
+            raise ValueError(f"op '{self.op}' requires both col and other_col")
+        if self.op == "tz_convert" and "tz" not in self.params:
+            raise ValueError("op 'tz_convert' requires params.tz")
+        return self
+
+    @property
+    def col_key(self) -> str | tuple:
+        if isinstance(self.col, list):
+            return tuple(self.col)
+        return self.col
+
+    @property
+    def dest_key(self) -> str | tuple | None:
+        if isinstance(self.dest, list):
+            return tuple(self.dest)
+        return self.dest
+
+    @property
+    def other_col_key(self) -> str | tuple | None:
+        if isinstance(self.other_col, list):
+            return tuple(self.other_col)
+        return self.other_col
+
 # ---------------------------------------------------------------------------
 # TransformConfig
 # ---------------------------------------------------------------------------
@@ -122,9 +202,10 @@ class TransformConfig(BaseModel):
 
     1. Rename columns
     2. Assign new columns
-    3. Filter rows
-    4. Select columns
-    5. Set index
+    3. Column transformations
+    4. Filter rows
+    5. Select columns
+    6. Set index
 
     Parameters
     ----------
@@ -132,6 +213,8 @@ class TransformConfig(BaseModel):
         Column rename mapping ``{old_name: new_name}``.
     assigns : dict of str to Any, optional
         Columns to create or overwrite with scalar or array-like values.
+    column_transforms: list of ColumnTransform, optional
+        Column transformations operations
     column_filters : list of ColumnFilter, optional
         Row filters combined with logical AND.
     select : list of str, optional
@@ -165,6 +248,7 @@ class TransformConfig(BaseModel):
 
     renames: dict[str, str] = {}
     assigns: dict[str, Any] = {}
+    column_transforms: list[ColumnTransform] = []
     column_filters: list[ColumnFilter] = []
     select: list[str] = []
     index: str | list[str] | None = None
