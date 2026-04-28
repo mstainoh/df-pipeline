@@ -2,8 +2,13 @@
 
 Declarative DataFrame transformation library for Python ETL pipelines.
 
-Define your data transformations in YAML — renames, casts, filters, deduplication, column arithmetic — and apply them with a single function call. No boilerplate, no repeated logic across scripts.
+This code helps define metadata-driven pandas transformations using YAML — this includes simple transformations (silver layer), e.g.: renames, casts, filters, deduplication, column arithmetic — and apply them with simple function call. No boilerplate, no repeated logic across scripts. User can track the logic of the script using configuration files (yaml), which are more readable.
 
+Also includes basic CLI features (logger and CLI argparser) for quick deployment.
+
+See *examples* folder for a sample script and configuration file
+
+Example:
 ```python
 import yaml
 from df_pipeline import TransformConfig, apply_base_transform
