@@ -10,7 +10,7 @@ Schema (config models)::
 
 Transforms::
 
-    from df_pipeline import apply_transform
+    from df_pipeline import apply_base_transform
 
 Filters::
 
@@ -23,7 +23,7 @@ CLI helpers::
 
 from df_pipeline.schema import ColumnFilter, TransformConfig
 from df_pipeline.filters import build_mask
-from df_pipeline.transforms import apply_transform
+from df_pipeline.transforms import apply_base_transform
 from df_pipeline.cli import log_runner, default_parser
 import logging
 
@@ -31,7 +31,7 @@ __all__ = [
     "ColumnFilter",
     "TransformConfig",
     "build_mask",
-    "apply_transform",
+    "apply_base_transform",
     "log_runner",
     "default_parser",
 ]

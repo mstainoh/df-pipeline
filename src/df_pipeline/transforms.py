@@ -1,7 +1,7 @@
 """
 Declarative DataFrame transformation pipeline.
 
-The main entry point is :func:`apply_transform`, which executes a
+The main entry point is :func:`apply_base_transform`, which executes a
 fixed-order sequence of operations driven by a :class:`~df_pipeline.schema.TransformConfig`.
 
 Transformation order
@@ -29,7 +29,7 @@ from df_pipeline.filters import build_mask
 from df_pipeline.schema import TransformConfig
 
 
-def apply_transform(
+def apply_base_transform(
     df: pd.DataFrame,
     config: TransformConfig,
     logger: Logger | None = None,
@@ -57,24 +57,24 @@ def apply_transform(
     From a Pydantic model::
 
         from df_pipeline.schema import TransformConfig, ColumnFilter
-        from df_pipeline.transforms import apply_transform
+        from df_pipeline.transforms import apply_base_transform
 
         config = TransformConfig(
             renames={"old": "new"},
             column_filters=[ColumnFilter(col="well_id", op="startswith", value="PW")],
             index="well_id",
         )
-        df_out = apply_transform(df_raw, config)
+        df_out = apply_base_transform(df_raw, config)
 
     From parsed YAML::
 
         import yaml
         from df_pipeline.schema import TransformConfig
-        from df_pipeline.transforms import apply_transform
+        from df_pipeline.transforms import apply_base_transform
 
         params = yaml.safe_load(open("config.yaml"))
         config = TransformConfig.model_validate(params["transform"]["data"])
-        df_out = apply_transform(df_raw, config)
+        df_out = apply_base_transform(df_raw, config)
     """
     df = df.copy()
 

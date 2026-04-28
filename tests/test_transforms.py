@@ -1,12 +1,12 @@
 """
-Tests for df_pipeline.transforms — apply_transform pipeline.
+Tests for df_pipeline.transforms — apply_base_transform pipeline.
 """
 
 import pandas as pd
 import pytest
 
 from df_pipeline.schema import ColumnFilter, TransformConfig
-from df_pipeline.transforms import apply_transform
+from df_pipeline.transforms import apply_base_transform
 
 
 # ---------------------------------------------------------------------------
@@ -29,30 +29,30 @@ def df() -> pd.DataFrame:
 class TestRenames:
     def test_rename_column(self, df):
         config = TransformConfig(renames={"old_name": "new_name"})
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert "new_name" in out.columns
         assert "old_name" not in out.columns
 
     def test_no_renames_is_noop(self, df):
         config = TransformConfig()
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert list(out.columns) == list(df.columns)
 
 
 class TestAssigns:
     def test_assign_scalar(self, df):
         config = TransformConfig(assigns={"source": "LIMS"})
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert (out["source"] == "LIMS").all()
 
     def test_assign_overwrites_existing(self, df):
         config = TransformConfig(assigns={"rate": 0.0})
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert (out["rate"] == 0.0).all()
 
     def test_assign_null(self, df):
         config = TransformConfig(assigns={"flag": None})
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert out["flag"].isna().all()
 
 
@@ -61,38 +61,38 @@ class TestFilters:
         config = TransformConfig(
             column_filters=[ColumnFilter(col="well_id", op="startswith", value="PW")]
         )
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert len(out) == 3
         assert "INJ001" not in out["well_id"].values
 
     def test_empty_filters_keeps_all_rows(self, df):
         config = TransformConfig(column_filters=[])
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert len(out) == len(df)
 
 
 class TestSelect:
     def test_select_columns(self, df):
         config = TransformConfig(select=["well_id", "rate"])
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert list(out.columns) == ["well_id", "rate"]
 
     def test_select_missing_column_raises(self, df):
         config = TransformConfig(select=["well_id", "nonexistent"])
         with pytest.raises(KeyError):
-            apply_transform(df, config)
+            apply_base_transform(df, config)
 
 
 class TestIndex:
     def test_set_index(self, df):
         config = TransformConfig(index="well_id")
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert out.index.name == "well_id"
         assert "well_id" not in out.columns
 
     def test_set_multiindex(self, df):
         config = TransformConfig(index=["well_id", "old_name"])
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert out.index.names == ["well_id", "old_name"]
 
 
@@ -107,7 +107,7 @@ class TestPipelineOrdering:
             renames={"well_id": "id"},
             column_filters=[ColumnFilter(col="id", op="startswith", value="PW")],
         )
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert len(out) == 3
 
     def test_assign_before_filter(self, df):
@@ -116,7 +116,7 @@ class TestPipelineOrdering:
             assigns={"flag": True},
             column_filters=[ColumnFilter(col="flag", op="eq", value=True)],
         )
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert len(out) == len(df)
 
     def test_filter_before_select(self, df):
@@ -125,7 +125,7 @@ class TestPipelineOrdering:
             column_filters=[ColumnFilter(col="well_id", op="startswith", value="PW")],
             select=["rate"],
         )
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
         assert list(out.columns) == ["rate"]
         assert len(out) == 3
 
@@ -135,7 +135,7 @@ class TestPipelineOrdering:
             renames={"old_name": "new_name"},
             assigns={"extra": 99},
         )
-        apply_transform(df, config)
+        apply_base_transform(df, config)
         assert list(df.columns) == original_cols
 
 
@@ -155,7 +155,7 @@ class TestFromDict:
             "index": "well_id",
         }
         config = TransformConfig.model_validate(raw)
-        out = apply_transform(df, config)
+        out = apply_base_transform(df, config)
 
         assert out.index.name == "well_id"
         assert list(out.columns) == ["rate", "new_name"]
