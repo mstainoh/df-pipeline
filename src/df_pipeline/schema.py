@@ -196,11 +196,11 @@ class TransformConfig(BaseModel):
         Column-level transforms applied in order.
     column_filters : list of ColumnFilter, optional
         Row filters combined with logical AND.
-    drop_duplicates : list of str or bool, optional
+    drop_duplicates : list of str or bool, optional. Allows MultiIndex columns via list of level names.
         If a list, drop duplicates considering only those columns as subset.
         If ``True``, drop fully duplicate rows. Default ``False`` (skip).
-    select : list of str, optional
-        Columns to retain in the output. Applied after filters.
+    select : list of (str | list[str]), optional
+        Columns to retain in the output. Applied after filters. Allows MultiIndex columns via list of level names.
     index : str or list of str, optional
         Column(s) to set as the DataFrame index.
     """
@@ -209,6 +209,20 @@ class TransformConfig(BaseModel):
     assigns:           dict[str, Any]        = {}
     column_transforms: list[ColumnTransform] = []
     column_filters:    list[ColumnFilter]    = []
-    drop_duplicates:   list[str] | bool      = False
-    select:            list[str]             = []
+    drop_duplicates:   list[str | list] | bool      = False
+    select:            list[str | list[str]]             = []
     index:             str | list[str] | None = None
+
+    @property
+    def select_col_keys(self):
+        return [tuple(col) if isinstance(col, list) else col for col in self.select]
+
+    @property
+    def drop_col_keys(self):
+        if isinstance(self.drop_duplicates, list):
+            subset = [tuple(col) if isinstance(col, list) else col for col in self.drop_duplicates]
+        elif self.drop_duplicates is True:
+            subset = True
+        else:            
+            subset = None
+        return subset

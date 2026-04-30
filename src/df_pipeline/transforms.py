@@ -118,7 +118,7 @@ def apply_base_transform(
 
     # Step 5 — drop duplicates
     if config.drop_duplicates is not False:
-        subset = config.drop_duplicates if isinstance(config.drop_duplicates, list) else None
+        subset = config.drop_col_keys
         if logger is not None:
             logger.debug("Transform step 5/7 — dropping duplicates, subset=%s", subset)
         df = df.drop_duplicates(subset=subset)
@@ -127,7 +127,7 @@ def apply_base_transform(
     if config.select:
         if logger is not None:
             logger.debug("Transform step 6/7 — selecting columns: %s", config.select)
-        df = df[config.select]
+        df = df[config.select_col_keys]
 
     # Step 7 — set index
     if config.index is not None:
