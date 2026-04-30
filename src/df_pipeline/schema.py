@@ -184,7 +184,8 @@ class TransformConfig(BaseModel):
     4. Filter rows          (``column_filters``)
     5. Drop duplicates      (``drop_duplicates``)
     6. Select columns       (``select``)
-    7. Set index            (``index``)
+    7. Sort                 (``sort``)
+    8. Set index            (``index``)
 
     Parameters
     ----------
@@ -196,8 +197,7 @@ class TransformConfig(BaseModel):
         Column-level transforms applied in order.
     column_filters : list of ColumnFilter, optional
         Row filters combined with logical AND.
-    drop_duplicates : list of str or bool, optional. Allows MultiIndex columns via list of level names.
-        If a list, drop duplicates considering only those columns as subset.
+    drop_duplicates : list of str or bool, optional.
         If ``True``, drop fully duplicate rows. Default ``False`` (skip).
     select : list of (str | list[str]), optional
         Columns to retain in the output. Applied after filters. Allows MultiIndex columns via list of level names.
@@ -209,20 +209,7 @@ class TransformConfig(BaseModel):
     assigns:           dict[str, Any]        = {}
     column_transforms: list[ColumnTransform] = []
     column_filters:    list[ColumnFilter]    = []
-    drop_duplicates:   list[str | list] | bool      = False
-    select:            list[str | list[str]]             = []
+    drop_duplicates:   list[str | list[str]] | bool       = False
+    select:            list[str | list[str]] | None  = None
+    sort:              str | list[str] | None  = None
     index:             str | list[str] | None = None
-
-    @property
-    def select_col_keys(self):
-        return [tuple(col) if isinstance(col, list) else col for col in self.select]
-
-    @property
-    def drop_col_keys(self):
-        if isinstance(self.drop_duplicates, list):
-            subset = [tuple(col) if isinstance(col, list) else col for col in self.drop_duplicates]
-        elif self.drop_duplicates is True:
-            subset = True
-        else:            
-            subset = None
-        return subset

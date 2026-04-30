@@ -32,3 +32,7 @@ Supports both scalar and column-to-column comparisons.
 
 **Examples** — full runner script (`examples/example_etl.py`) with logging, CLI flags,
 custom op registration, and annotated YAML config.
+
+## [0.1.1] — 2026-04-30
+Added multiindex capabilities for select and drop duplicates
+Added sort operation
