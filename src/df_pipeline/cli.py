@@ -80,19 +80,17 @@ def log_runner(script_name: str, logger: Logger) -> Callable:
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, dry_run: bool = False, **kwargs):
+        def wrapper(*args, **kwargs):
             logger.info("=== %s runner start ===", script_name)
-            run_start_dttm = pd.Timestamp.now()
+            run_start = pd.Timestamp.now()
 
             try:
                 result = func(
                     *args,
-                    dry_run=dry_run,
-                    run_start_dttm=run_start_dttm,
                     **kwargs,
                 )
             finally:
-                elapsed = (pd.Timestamp.now() - run_start_dttm).total_seconds()
+                elapsed = (pd.Timestamp.now() - run_start).total_seconds()
                 logger.info("Run finished — elapsed %.3f secs", elapsed)
                 logger.info("=== %s runner done ===", script_name)
 
