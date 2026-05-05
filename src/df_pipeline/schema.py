@@ -33,7 +33,7 @@ Usage from Python
 
 from __future__ import annotations
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, ConfigDict
 
 from df_pipeline.registry import COLUMN_TRANSFORM_REGISTRY, OpName
 
@@ -205,6 +205,7 @@ class TransformConfig(BaseModel):
     index : str or list of str, optional
         Column(s) to set as the DataFrame index.
     """
+    model_config = ConfigDict(extra="forbid")  # ← rechaza keys desconocidas
 
     renames:           dict[str, str]        = {}
     assigns:           dict[str, Any]        = {}
