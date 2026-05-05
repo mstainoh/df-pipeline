@@ -40,7 +40,7 @@ class TestTransformConfig:
         assert config.renames == {}
         assert config.assigns == {}
         assert config.column_filters == []
-        assert config.select == []
+        assert config.select is None
         assert config.index is None
 
     def test_model_validate_from_dict(self):

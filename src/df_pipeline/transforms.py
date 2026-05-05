@@ -130,7 +130,7 @@ def apply_base_transform(
             df = df.drop_duplicates(subset=cols)
 
     # Step 6 — select
-    if config.select is not None:
+    if config.select:
         if logger is not None:
             logger.debug("Transform step 6/8 — selecting columns: %s", config.select)
         cols = _list_to_tuple(config.select)
