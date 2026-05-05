@@ -52,7 +52,8 @@ class ColumnFilter(BaseModel):
     op : OpName
         Comparison or string operator. Supported values:
         ``ge``, ``gt``, ``le``, ``lt``, ``eq``, ``ne``,
-        ``startswith``, ``endswith``, ``contains``.
+        ``startswith``, ``endswith``, ``contains``, 
+        ``in``, ``nin``,
     value : Any, optional
         Right-hand side scalar. May be ``None`` if ``other_col`` is specified.
     other_col : str or list of str, optional

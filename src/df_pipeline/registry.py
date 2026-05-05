@@ -38,6 +38,7 @@ import pandas as pd
 OpName = Literal[
     "ge", "gt", "le", "lt", "eq", "ne",
     "startswith", "endswith", "contains",
+    "in", "nin"
 ]
 # ---------------------------------------------------------------------------
 # Operator registry
