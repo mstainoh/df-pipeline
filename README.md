@@ -215,6 +215,7 @@ Filters are combined with logical AND. Supported operators:
 | `gt`, `ge` | Greater than / greater or equal |
 | `lt`, `le` | Less than / less or equal |
 | `startswith`, `endswith`, `contains` | String operations |
+|`in` `nin`| contain operations |
 
 ```yaml
 column_filters:

@@ -36,3 +36,6 @@ custom op registration, and annotated YAML config.
 ## [0.1.1] — 2026-04-30
 Added multiindex capabilities for select and drop duplicates
 Added sort operation
+
+## [0.1.2] — 2026-05-05
+added in and not in ("in"/"nin") operations

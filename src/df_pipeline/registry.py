@@ -56,6 +56,10 @@ OP_MAPPERS: dict[str, Any] = {
     "startswith": lambda s, x: s.astype(str).str.startswith(x),
     "endswith":   lambda s, x: s.astype(str).str.endswith(x),
     "contains":   lambda s, x: s.astype(str).str.contains(x, regex=False),
+
+    # other
+    "in": lambda s, x: s.isin(x),
+    "nin":  lambda s, x: ~s.isin(x),
 }
 # ---------------------------------------------------------------------------
 # TransformSpec
