@@ -23,7 +23,7 @@ class TestColumnFilter:
 
     def test_invalid_op_raises(self):
         with pytest.raises(ValidationError):
-            ColumnFilter(col="x", op="modulo", value=1)
+            ColumnFilter(col="x", op="modulo", value=1) #type: ignore
 
     def test_empty_string_col_raises(self):
         with pytest.raises(ValidationError):

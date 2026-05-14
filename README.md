@@ -143,6 +143,11 @@ Built-in ops:
 | `to_datetime` | Cast to datetime | any `pd.to_datetime` kwarg |
 | `tz_convert` | Timezone conversion | `tz` (required) |
 | `date_diff` | Signed difference between two datetime columns, returns float | `unit`: `"days"`, `"hours"`, `"minutes"`, `"seconds"` (default) |
+| `col_add` | Add two columns | — |
+| `col_sub` | Subtract two columns (`col - other_col`) | — |
+| `col_mul` | Multiply two columns | — |
+| `col_div` | Divide two columns (`col / other_col`) | — |
+| `col_arithmetic` | Generic arithmetic between two columns | `op`: `"add"`, `"sub"`, `"mul"`, `"pow"`, `"mod"` (required) |
 
 ```yaml
 column_transforms:
@@ -158,6 +163,20 @@ column_transforms:
     dest: elapsed_days
     params:
       unit: days
+
+  # multiply two columns
+  - op: col_mul
+    col: flow_rate_m3h
+    other_col: duration_hours
+    dest: total_volume
+
+  # generic arithmetic
+  - op: col_arithmetic
+    col: pressure_out
+    other_col: pressure_in
+    dest: delta_pressure
+    params:
+      op: sub
 ```
 
 If `dest` is omitted, the result overwrites `col`.
@@ -166,27 +185,26 @@ If `dest` is omitted, the result overwrites `col`.
 
 Example: we register an operation to convert units (in this example, m3/hour to liters/s), and we add a simple function to add the current date. Note that in the second example we set `requires_col=False`. The config file would look like:
 
-```
+```yaml
   - op: unit_convert
     col: flow_rate_m3h
     dest: flow_rate_ls
     params:
       factor: 0.27778
-  
+
   - op: now
     dest: processed_timestamp
-
 ```
 
 Code:
 ```python
 from df_pipeline.registry import TransformSpec, register_transform
 
-# signature: series1 (None), series2 (None), **kwargs
-def _unit_convert(s1: pd.Series, s2=None, factor: float = 1.0) -> pd.Series:
+# signature: series1, series2 (None), **kwargs
+def _unit_convert(s1: pd.Series, s2=None, factor: float = 1.0, **kwargs) -> pd.Series:
     return s1 * factor
 
-def set_now(*args, **kwargs):
+def set_now(s1=None, s2=None, **kwargs):
     return pd.Timestamp.now()
 
 # register before any TransformConfig is instantiated
@@ -194,14 +212,7 @@ register_transform("unit_convert", TransformSpec(fn=_unit_convert))
 register_transform("now", TransformSpec(fn=set_now, requires_col=False))
 ```
 
-Then use it in YAML or Python exactly like a built-in op:
-
-```yaml
-- op: unit_convert
-  col: flow_rate_m3h
-  dest: flow_rate_ls
-  factor: 0.27778
-```
+Then use it in YAML or Python exactly like a built-in op.
 
 ---
 
@@ -215,7 +226,7 @@ Filters are combined with logical AND. Supported operators:
 | `gt`, `ge` | Greater than / greater or equal |
 | `lt`, `le` | Less than / less or equal |
 | `startswith`, `endswith`, `contains` | String operations |
-|`in` `nin`| contain operations |
+| `in`, `nin` | Membership / exclusion (value must be a list) |
 
 ```yaml
 column_filters:
@@ -225,6 +236,10 @@ column_filters:
   - col: flow_rate
     op: gt
     value: 500.0
+  # filter by list
+  - col: status
+    op: in
+    value: ["active", "monitoring"]
   # compare two columns directly
   - col: measured_flow
     op: gt

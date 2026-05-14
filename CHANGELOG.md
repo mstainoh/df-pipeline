@@ -39,3 +39,6 @@ Added sort operation
 
 ## [0.1.2] — 2026-05-05
 added in and not in ("in"/"nin") operations
+
+## [0.1.3] - 2026-05-14
+added algebra operations for columns

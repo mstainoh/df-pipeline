@@ -109,6 +109,16 @@ class TransformSpec:
 
 
 # ---------------------------------------------------------------------------
+# Extra functions
+# ---------------------------------------------------------------------------
+ArithmeticValidOperator = Literal['mul', 'sub', 'add', 'pow', 'mod']
+def col_arithmetic(s1, s2, op: ArithmeticValidOperator, **kwargs):
+    valid = ['mul', 'sub', 'add', 'pow', 'mod']
+    if op not in valid:
+        raise ValueError(f'Unrecognized operator name {op} - valida names are: "{valid}"')
+    return getattr(operator, op)(s1, s2)
+
+# ---------------------------------------------------------------------------
 # Built-in registry
 # ---------------------------------------------------------------------------
 COLUMN_TRANSFORM_REGISTRY: dict[str, TransformSpec] = {
@@ -126,8 +136,27 @@ COLUMN_TRANSFORM_REGISTRY: dict[str, TransformSpec] = {
         fn=lambda s1, s2, unit="seconds", **kwargs: (s1 - s2) / pd.Timedelta(1, unit=unit), #type:ignore
         requires_other_col=True,
     ),
+    "col_add": TransformSpec(
+        fn=lambda s1, s2, **kwargs: (s1 + s2),
+        requires_other_col=True,
+    ),
+    "col_sub": TransformSpec(
+        fn=lambda s1, s2, **kwargs: (s1 - s2),
+        requires_other_col=True,
+    ),
+    "col_mul": TransformSpec(
+        fn=lambda s1, s2, **kwargs: (s1 * s2),
+        requires_other_col=True,
+    ),
+    "col_div": TransformSpec(
+        fn=lambda s1, s2, **kwargs: (s1 / s2),
+        requires_other_col=True,
+    ),
+    "col_arithmetic": TransformSpec(
+        fn=col_arithmetic,
+        requires_other_col=True,
+    ),
 }
-
 
 # ---------------------------------------------------------------------------
 # Public API
