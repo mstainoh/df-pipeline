@@ -6,6 +6,10 @@ This code helps define metadata-driven pandas transformations using YAML — thi
 
 Also includes basic CLI features (logger and CLI argparser) for quick deployment.
 
+## why
+Most ETL scripts repeat the same pandas boilerplate scattered across files with no shared structure. It is now standard practice to separate transformation parameters into human-readable config files. df-pipeline consolidates that pattern using YAML as a lightweight metadata layer, keeping pipeline logic auditable and easy to modify without touching code.
+
+## Examples
 See *examples* folder for a sample script and configuration file
 
 Example:
