@@ -57,6 +57,12 @@ transform:
     drop_duplicates:
       - node_id
       - start_date
+    
+    select_dtypes:
+      include: 
+        - number
+        - datetime
+        - str
 
     select:
       - node_id
