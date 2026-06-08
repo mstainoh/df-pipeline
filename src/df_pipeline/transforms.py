@@ -89,13 +89,13 @@ def apply_base_transform(
     # Step 1 — renames
     if config.renames:
         if logger is not None:
-            logger.debug("Transform step 1/8 — renaming columns: %s", config.renames)
+            logger.debug("Transform step 1/9 — renaming columns: %s", config.renames)
         df = df.rename(columns=config.renames)
 
     # Step 2 — assigns
     if config.assigns:
         if logger is not None:
-            logger.debug("Transform step 2/8 — assigning columns: %s", list(config.assigns))
+            logger.debug("Transform step 2/9 — assigning columns: %s", list(config.assigns))
         for col, value in config.assigns.items():
             df[col] = value
 
@@ -103,7 +103,7 @@ def apply_base_transform(
     if config.column_transforms:
         if logger is not None:
             logger.debug(
-                "Transform step 3/8 — applying %d column transform(s)",
+                "Transform step 3/9 — applying %d column transform(s)",
                 len(config.column_transforms),
             )
         df = apply_column_transforms(df, config.column_transforms, logger=logger)
@@ -112,7 +112,7 @@ def apply_base_transform(
     if config.column_filters:
         if logger is not None:
             logger.debug(
-                "Transform step 4/8 — applying %d filter(s)",
+                "Transform step 4/9 — applying %d filter(s)",
                 len(config.column_filters),
             )
         mask = build_mask(df, config.column_filters, logger=logger)
@@ -122,31 +122,37 @@ def apply_base_transform(
     if config.drop_duplicates is not False:
         if logger is not None:
             s = 'subset: {}'.format(config.drop_duplicates) if isinstance(config.drop_duplicates, list) else 'all columns'
-            logger.debug("Transform step 5/8 — dropping duplicates - {}".format(s))
+            logger.debug("Transform step 5/9 — dropping duplicates - {}".format(s))
         if config.drop_duplicates is True:
             df = df.drop_duplicates()
         else:
             cols = _list_to_tuple(config.drop_duplicates)
             df = df.drop_duplicates(subset=cols)
 
-    # Step 6 — select
+    # Step 6 — select dtypes
+    if config.select_dtypes:
+        if logger is not None:
+            logger.debug("Transform step 6/9 — selecting dtypes: %s", config.select_dtypes)
+        df = df.select_dtypes(**config.select_dtypes) # type: ignore[arg-type]
+
+    # Step 7 — select
     if config.select:
         if logger is not None:
-            logger.debug("Transform step 6/8 — selecting columns: %s", config.select)
+            logger.debug("Transform step 7/9 — selecting columns: %s", config.select)
         cols = _list_to_tuple(config.select)
         df = df[cols]
 
-    # Step 7 — sort
+    # Step 8 — sort
     if config.sort is not None:
         if logger is not None:
-            logger.debug("Transform step 7/8 — sorting by columns: %s", config.sort)
+            logger.debug("Transform step 8/9 — sorting by columns: %s", config.sort)
         cols = config.sort
         df = df.sort_values(by=cols)
 
-    # Step 8 — set index
+    # Step 9 — set index
     if config.index is not None:
         if logger is not None:
-            logger.debug("Transform step 7/7 — setting index: %s", config.index)
+            logger.debug("Transform step 9/9 — setting index: %s", config.index)
         df = df.set_index(config.index)
 
     return df

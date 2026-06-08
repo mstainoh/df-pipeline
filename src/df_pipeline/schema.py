@@ -33,7 +33,7 @@ Usage from Python
 
 from __future__ import annotations
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, model_validator, ConfigDict
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict
 
 from df_pipeline.registry import COLUMN_TRANSFORM_REGISTRY, OpName
 
@@ -170,7 +170,6 @@ class ColumnTransform(BaseModel):
 # ---------------------------------------------------------------------------
 # TransformConfig
 # ---------------------------------------------------------------------------
-
 class TransformConfig(BaseModel):
     """
     Full declarative specification for a DataFrame transformation pipeline.
@@ -184,9 +183,10 @@ class TransformConfig(BaseModel):
     3. Column transforms    (``column_transforms``)
     4. Filter rows          (``column_filters``)
     5. Drop duplicates      (``drop_duplicates``)
-    6. Select columns       (``select``)
-    7. Sort                 (``sort``)
-    8. Set index            (``index``)
+    6. Select dtypes        (``select_dtypes``)
+    7. Select columns       (``select``)
+    8. Sort                 (``sort``)
+    9. Set index            (``index``)
 
     Parameters
     ----------
@@ -200,6 +200,8 @@ class TransformConfig(BaseModel):
         Row filters combined with logical AND.
     drop_duplicates : list of str or bool, optional.
         If ``True``, drop fully duplicate rows. Default ``False`` (skip).
+    select_dtypes : dict[Literal['include', 'exclude'], None | str | list[str]]
+        include or exclude columns. See pandas.DataFrame.select_dtypes
     select : list of (str | list[str]), optional
         Columns to retain in the output. Applied after filters. Allows MultiIndex columns via list of level names.
     index : str or list of str, optional
@@ -212,6 +214,16 @@ class TransformConfig(BaseModel):
     column_transforms: list[ColumnTransform] = []
     column_filters:    list[ColumnFilter]    = []
     drop_duplicates:   list[str | list[str]] | bool       = False
+    select_dtypes:     dict[Literal['include', 'exclude'], Optional[str | list[str]]] = {}
     select:            list[str | list[str]] | None  = None
     sort:              str | list[str] | None  = None
     index:             str | list[str] | None = None
+
+    select_dtypes: dict[Literal['include', 'exclude'], Optional[str | list[str]]] = {}
+
+    @field_validator("select_dtypes")
+    @classmethod
+    def _validate_select_dtypes_keys(cls, v: dict) -> dict:
+        if invalid := set(v) - {"include", "exclude"}:
+            raise ValueError(f"select_dtypes keys must be 'include' or 'exclude', got: {invalid}")
+        return v
