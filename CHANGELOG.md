@@ -42,3 +42,6 @@ added in and not in ("in"/"nin") operations
 
 ## [0.1.3] - 2026-05-14
 added algebra operations for columns
+
+## [0.1.4] - 2026-06-08
+- `TransformConfig`: added `select_dtypes` field (step 6) with key validation; added `sort` field (step 8).

@@ -130,8 +130,10 @@ Steps execute in this fixed order:
 | 3 | `column_transforms` | Cast, compute, or convert columns |
 | 4 | `column_filters` | Filter rows (combined with AND) |
 | 5 | `drop_duplicates` | Drop duplicate rows |
-| 6 | `select` | Keep only specified columns |
-| 7 | `index` | Set DataFrame index |
+| 6 | `select_dtypes`   | Keep only columns of specified dtype(s) |
+| 7 | `select`          | Keep only specified columns |
+| 8 | `sort`            | Sort rows by column(s) |
+| 9 | `index`           | Set DataFrame index |
 
 All steps are optional. Omitted steps are skipped.
 
@@ -257,6 +259,19 @@ from df_pipeline.registry import OP_MAPPERS
 
 OP_MAPPERS["between"] = lambda s, x: s.between(x[0], x[1])
 ```
+---
+
+## Dtype selection
+
+Keep or drop columns by dtype before the `select` step:
+
+```yaml
+select_dtypes:
+  include: number        # or a list: ["float64", "int64"]
+  # exclude: object      # mutually exclusive with include in pandas
+```
+
+Accepts any value valid for `pd.DataFrame.select_dtypes`. Keys must be `include` or `exclude`; any other key raises a `ValidationError`.
 
 ---
 
